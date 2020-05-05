@@ -141,7 +141,11 @@ def fontcss():
     else:
         params = request.get_json()
         fontcss = params.get('fontcss')
-        set1.update({}, {"fontcss": fontcss})
+        ishave = set1.find_one()
+        if ishave:
+            set1.update({}, {"fontcss": fontcss})
+        else:
+            set1.insert({}, {"fontcss": fontcss})
         return jsonify({'status': 0})
 
 # 标签操作
@@ -210,8 +214,8 @@ def photo():
         params = request.args
         album = params.get('album')
         page = int(params.get('page'))
-        print(params)
-        print(album, page)
+        # print(params)
+        # print(album, page)
         if album:
             cursor = set1.find({'album': album}, {"_id": 0}).skip(
                 (page-1)*30).limit(30)
@@ -222,7 +226,8 @@ def photo():
         for x in cursor:
             photos.append(x)
         # pagination["current_page"] = current_page
-        total_page = math.ceil(cursor.count()/30)
+        total_page = math.ceil(1 if cursor.count()==0 else cursor.count()/30)
+        # print(22222,total_page)
         return jsonify({"data": photos,'total_page':total_page})
     else:
         params = request.get_json()
@@ -231,13 +236,46 @@ def photo():
         img = params.get('img')
 
         if album and img:
-            for i in range(50):
+            for _ in range(50):
                 data = {}
                 data["album"] = album
                 data["img"] = img
                 set1.insert(data)
             return jsonify({'status': 0})
 
+# 添加资源链接
+@app.route(baseurl + '/file', methods=["GET","POST"])
+def file():
+    set1 = mongo.db.files
+    if request.method == "GET":
+
+        params = request.args
+        print(params)
+        category=params.get('category')
+        page=int(params.get('page'))
+        keyword=params.get('keyword')
+        if category:
+            cursor=set1.find({'category':category}, {"_id": 0}).sort("_id", -1).skip(
+                    (page-1)*20).limit(20)
+        elif keyword:
+            cursor=set1.find({"name": {"$regex": keyword, "$options": 'i'}}, {"_id": 0}).sort("_id", -1).skip(
+                    (page-1)*20).limit(20)
+        else:
+            cursor=set1.find({}, {"_id": 0}).sort("_id", -1).skip(
+                    (page-1)*20).limit(20)
+        data = []
+        total=cursor.count()
+        print(total)
+        for x in cursor:
+            data.append(x)
+        return jsonify({'data': data,"total":total})
+    else:
+        params = request.get_json()
+        params['date']=datetime.datetime.now().strftime("%Y/%m/%d %H:%M")
+        set1.insert(params)  
+        return jsonify({'status': 0})
+
+    
 
 #-------------------------前端请求---------------------------#
 # "article_id":1,
