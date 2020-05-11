@@ -8,18 +8,21 @@ import jwt
 import time
 import datetime
 import re
-from .config import JWTSECRET, LOGINAME, PASSWORD, AUTHORIZE_EXPIRES, OriginMap, CategoryMap, PAGE_NUM
+from .config import JWTSECRET, LOGINAME, PASSWORD, AUTHORIZE_EXPIRES, OriginMap, CategoryMap, PAGE_NUM, baseurl, DOMIN
+from .utils import get_list, mkdir
 CORS(app, supports_credentials=True)
-baseurl = ""
 
 
-# 拦截器
+# 拦截器(所有post请求需要提供cookie)
 @app.before_request
 def before_action():
-    if request.path not in []:
+    if request.path in [baseurl + "/login", baseurl + "/comment", baseurl + "/like/comment", baseurl+'/like/site',baseurl + '/like/article']:
+        return
+    if request.method == "GET":
         return
     # print("拦截器",request.cookies)
     token = request.cookies.get("token")
+    # print(request.cookies,111,token)
     try:
         usertokenInfo = jwt.decode(token, JWTSECRET, algorithms=['HS256'])
         ctime = usertokenInfo.get("ctime")
@@ -82,8 +85,8 @@ def publish():
     for x in preArticle_id:
         if x:
             Article_id = x["article_id"]
-    imgUrl = re.search(r".*?\[.*?\]\((.+?)\).*",
-                       params['markvalue'], flags=re.S)
+    imgUrl = re.search(
+        r".*?\[.*?\]\(http[s]?://.*?(/.+?)\).*", params['markvalue'], flags=re.S)
     if imgUrl:
         imgUrl = imgUrl.group(1)
 
@@ -107,15 +110,15 @@ def publish():
 @app.route(baseurl + '/uploadImg', methods=["POST"])
 def uploadImg():
     img = request.files['file']
-    path = 'E:/PythonPJ/flask-myblog-api/app' + '/static/images/uploadImg/'
+    path = '/static/images/article/'
     filename = datetime.datetime.now().strftime("%Y%m%d%H%M%S") + \
         (img.filename[-8:])  # 图片防止重复
     file_path = path + filename
     img.save(file_path)
     # 返回预览图
     return jsonify({
-        'errno': 0,
-        'data': ['/static/images/uploadImg/' + filename]
+        'status': 0,
+        'data': [DOMIN+'/static/images/article/' + filename]
     })
 
 # 添加随便说说
@@ -197,13 +200,17 @@ def album():
         description = params.get('description')
         img = params.get('img')
         data = {}
-
         if name and img and description:
             data['name'] = name
             data['description'] = description
             data['img'] = img
-            set1.insert(data)
-            return jsonify({'status': 0})
+            if mkdir("/static/images/photo/"+name):
+                set1.insert(data)
+                return jsonify({'status': 0})
+            else:
+                return jsonify({'status': 1, "msg": "目录已存在"})
+        else:
+            return jsonify({'status': 1, "msg": "有空内容"})
 
 
 # 图片操作
@@ -226,9 +233,9 @@ def photo():
         for x in cursor:
             photos.append(x)
         # pagination["current_page"] = current_page
-        total_page = math.ceil(1 if cursor.count()==0 else cursor.count()/30)
+        total_page = math.ceil(1 if cursor.count() == 0 else cursor.count()/30)
         # print(22222,total_page)
-        return jsonify({"data": photos,'total_page':total_page})
+        return jsonify({"data": photos, 'total_page': total_page})
     else:
         params = request.get_json()
         # print(params)
@@ -236,46 +243,45 @@ def photo():
         img = params.get('img')
 
         if album and img:
-            for _ in range(50):
-                data = {}
-                data["album"] = album
-                data["img"] = img
-                set1.insert(data)
+            data = {}
+            data["album"] = album
+            data["img"] = img
+            data["date"] = datetime.datetime.now().strftime(
+                "%Y/%m/%d %H:%M")
+            set1.insert(data)
             return jsonify({'status': 0})
 
 # 添加资源链接
-@app.route(baseurl + '/file', methods=["GET","POST"])
+@app.route(baseurl + '/file', methods=["GET", "POST"])
 def file():
     set1 = mongo.db.files
     if request.method == "GET":
-
         params = request.args
-        print(params)
-        category=params.get('category')
-        page=int(params.get('page'))
-        keyword=params.get('keyword')
+        # print(params)
+        category = params.get('category')
+        page = int(params.get('page'))
+        keyword = params.get('keyword')
         if category:
-            cursor=set1.find({'category':category}, {"_id": 0}).sort("_id", -1).skip(
-                    (page-1)*20).limit(20)
+            cursor = set1.find({'category': category}, {"_id": 0}).sort("_id", -1).skip(
+                (page-1)*20).limit(20)
         elif keyword:
-            cursor=set1.find({"name": {"$regex": keyword, "$options": 'i'}}, {"_id": 0}).sort("_id", -1).skip(
-                    (page-1)*20).limit(20)
+            cursor = set1.find({"name": {"$regex": keyword, "$options": 'i'}}, {"_id": 0}).sort("_id", -1).skip(
+                (page-1)*20).limit(20)
         else:
-            cursor=set1.find({}, {"_id": 0}).sort("_id", -1).skip(
-                    (page-1)*20).limit(20)
+            cursor = set1.find({}, {"_id": 0}).sort("_id", -1).skip(
+                (page-1)*20).limit(20)
         data = []
-        total=cursor.count()
-        print(total)
+        total = cursor.count()
+        # print(total)
         for x in cursor:
             data.append(x)
-        return jsonify({'data': data,"total":total})
+        return jsonify({'data': data, "total": total})
     else:
         params = request.get_json()
-        params['date']=datetime.datetime.now().strftime("%Y/%m/%d %H:%M")
-        set1.insert(params)  
+        params['date'] = datetime.datetime.now().strftime("%Y/%m/%d %H:%M")
+        set1.insert(params)
         return jsonify({'status': 0})
 
-    
 
 #-------------------------前端请求---------------------------#
 # "article_id":1,
@@ -345,10 +351,6 @@ def reqArticle():
 
 
 # 获取时间轴列表
-def get_list(s):
-    return datetime.datetime.strptime(s, "%Y/%m/%d %H:%M").timestamp()
-
-
 @app.route(baseurl + '/timeline')
 def reqTimeline():
     set1 = mongo.db.blogs
