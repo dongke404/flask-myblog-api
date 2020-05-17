@@ -1,6 +1,6 @@
 # 主业务逻辑中的视图和路由的定义
 from . import app
-from . import mongo
+from . import db
 from flask_cors import CORS
 from flask import request, jsonify
 import math
@@ -16,7 +16,7 @@ CORS(app, supports_credentials=True)
 # 拦截器(所有post请求需要提供cookie)
 @app.before_request
 def before_action():
-    if request.path in [baseurl + "/login", baseurl + "/comment", baseurl + "/like/comment", baseurl+'/like/site',baseurl + '/like/article']:
+    if request.path in [baseurl + "/login", baseurl + "/comment", baseurl + "/like/comment", baseurl+'/like/site', baseurl + '/like/article']:
         return
     if request.method == "GET":
         return
@@ -37,7 +37,7 @@ def before_action():
                 }
             )
     except Exception as e:
-        print(e)
+        # print(e)
         return jsonify(
             {
                 'status': 1,
@@ -76,7 +76,7 @@ def login():
 @app.route(baseurl + '/publish', methods=["POST"])
 def publish():
     params = request.get_json()
-    set1 = mongo.db.blogs
+    set1 = db.blogs
 
     preArticle_id = set1.find({}, {'article_id': 1}).sort(
         "article_id", -1).limit(1)
@@ -101,6 +101,7 @@ def publish():
         "date": datetime.datetime.now().strftime("%Y/%m/%d %H:%M"),
         "view_num": 0,
         "likes": 0,
+        "cmt_num":0,
         "content": params['markvalue']
     }
     set1.insert(data)
@@ -126,7 +127,7 @@ def uploadImg():
 def addtalk():
     params = request.get_json()
     date = datetime.datetime.now().strftime("%Y/%m/%d %H:%M"),
-    set1 = mongo.db.announcements
+    set1 = db.announcements
     data = {
         "say": params.get("content"),
         "date": date[0],
@@ -137,7 +138,7 @@ def addtalk():
 # 修改新的css
 @app.route(baseurl + '/fontcss', methods=["GET", "POST"])
 def fontcss():
-    set1 = mongo.db.fontcss
+    set1 = db.fontcss
     if request.method == "GET":
         data = set1.find_one({}, {"_id": 0})
         return jsonify({'status': 0, 'data': data})
@@ -154,8 +155,8 @@ def fontcss():
 # 标签操作
 @app.route(baseurl + '/tag', methods=["GET", "POST"])
 def tags():
-    set1 = mongo.db.tags
-    set2 = mongo.db.blogs
+    set1 = db.tags
+    set2 = db.blogs
     if request.method == "GET":
         cursor = set1.find({}, {"_id": 0})
         data = []
@@ -186,7 +187,7 @@ def tags():
 # 图集操作
 @app.route(baseurl + '/album', methods=["GET", "POST"])
 def album():
-    set1 = mongo.db.album
+    set1 = db.album
     if request.method == "GET":
         cursor = set1.find({}, {"_id": 0})
         data = []
@@ -216,7 +217,7 @@ def album():
 # 图片操作
 @app.route(baseurl + '/photo', methods=["GET", "POST"])
 def photo():
-    set1 = mongo.db.photos
+    set1 = db.photos
     if request.method == "GET":
         params = request.args
         album = params.get('album')
@@ -254,7 +255,7 @@ def photo():
 # 添加资源链接
 @app.route(baseurl + '/file', methods=["GET", "POST"])
 def file():
-    set1 = mongo.db.files
+    set1 = db.files
     if request.method == "GET":
         params = request.args
         # print(params)
@@ -307,8 +308,8 @@ def reqArticle():
     current_page = int(params.get("page", 1))
     date = params.get("date")
     tag = params.get('tag_name')
-    set1 = mongo.db.blogs
-    set2 = mongo.db.comments
+    set1 = db.blogs
+    set2 = db.comments
     if category:
         iteration = set1.find({"category": category}, {"_id": 0}).sort(
             "article_id", -1).skip(
@@ -328,7 +329,7 @@ def reqArticle():
             (current_page-1)*PAGE_NUM).limit(PAGE_NUM)
     elif sort:
         iteration = set1.find({}, {"_id": 0}).sort(
-            "view_num", -1).limit(10)
+            "cmt_num", -1).limit(10)
     elif date:
         date = date.replace("-", "/")
         iteration = set1.find({"date": {"$regex": date}}, {"_id": 0})
@@ -353,8 +354,8 @@ def reqArticle():
 # 获取时间轴列表
 @app.route(baseurl + '/timeline')
 def reqTimeline():
-    set1 = mongo.db.blogs
-    set2 = mongo.db.announcements
+    set1 = db.blogs
+    set2 = db.announcements
     blog_cursor = set1.find(
         {}, {"_id": 0, "article_id": 1, "title": 1, "description": 1, "date": 1})
     says_cursor = set2.find({}, {"_id": 0, "date": 1, 'say': 1})
@@ -387,24 +388,24 @@ def reqTimeline():
 @app.route(baseurl + '/article/<int:article_id>')
 def reqArticleDetail(article_id):
     # print(article_id)
-    set1 = mongo.db.blogs
+    set1 = db.blogs
     set1.update({"article_id": article_id}, {'$inc': {'view_num': 1}})
     data = set1.find_one({"article_id": article_id}, {"_id": 0})
-    _ = []
+    if not data:
+        return jsonify({"status": 404, "msg": "页面不存在", "data": {}})
     related = set1.aggregate([{"$sample": {"size": 10}}, {"$project": {
                              "_id": 0, "article_id": 1, "imgUrl": 1, "title": 1}}],)
-
+    _ = []
     for i in related:
         _.append(i)
     data["related"] = _
-    # print(_)
-    return jsonify({"data": data})
+    return jsonify({"status": 0, "data": data})
 
 
 # 获取随便说说内容
 @app.route(baseurl + '/announcement')
 def announcement():
-    set1 = mongo.db.announcements
+    set1 = db.announcements
     data = []
     for x in set1.find({}, {
         "_id": 0,
@@ -419,7 +420,8 @@ def announcement():
 # 评论操作GET读取,Post发布
 @app.route(baseurl + '/comment', methods=["GET", "POST"])
 def comments():
-    set1 = mongo.db.comments
+    set1 = db.comments
+    set2= db.blogs
     # 读取评论列表
     if request.method == "GET":
         params = request.args
@@ -468,13 +470,14 @@ def comments():
                 {'comment_id': params["pid"]}, {"_id": 0})
             params["taruser"] = targetCmt["author"]["name"]
         params["_id"] = Comment_id+1
+        set2.update({'article_id': params["post_id"]}, {'$inc': {'cmt_num': 1}})
         return jsonify({'status': 0, 'data': params})
 
 
 # 获取主站信息
 @app.route(baseurl + '/siteOption')
 def siteOption():
-    set1 = mongo.db.siteOption
+    set1 = db.siteOption
     data = set1.find_one({}, {"_id": 0})
     if not data:
         create_time = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
@@ -488,7 +491,7 @@ def siteOption():
 def likearticle():
     params = request.get_json()
     article_id = params.get("article_id")
-    set1 = mongo.db.blogs
+    set1 = db.blogs
     set1.update({"article_id": article_id}, {'$inc': {'likes': 1}})
     return jsonify({'status': 0})
 
@@ -496,7 +499,7 @@ def likearticle():
 # 点赞留言板
 @app.route(baseurl + '/like/site', methods=["POST"])
 def likeSite():
-    set1 = mongo.db.siteOption
+    set1 = db.siteOption
     set1.update({}, {'$inc': {'likes': 1}})
     return jsonify({'status': 0})
 
@@ -504,7 +507,7 @@ def likeSite():
 # 点赞评论
 @app.route(baseurl + '/like/comment', methods=["POST"])
 def likeComment():
-    set1 = mongo.db.comments
+    set1 = db.comments
     params = request.get_json()
     comment_id = params.get('comment_id')
     # print(comment_id)
