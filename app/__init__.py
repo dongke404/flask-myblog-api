@@ -13,9 +13,9 @@ app.config["SECRET_KEY"] = "mysite2"
 
 
 myclient = MongoClient(MONGODBHOST,
-                       username='dongkirk',
-                       password='Python1112+.',
-                       authSource='myblog',
-                       authMechanism='SCRAM-SHA-256'
+                       #  username='admin',
+                       #  password='admin',
+                       #  authSource='myblog',
+                       #  authMechanism='SCRAM-SHA-256'
                        )
 db = myclient["myblog"]

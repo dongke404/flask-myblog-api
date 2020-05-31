@@ -10,8 +10,8 @@ DOMIN="http://127.0.0.1:3000"
 # DOMIN = "https://kedong.me"
 
 JWTSECRET = "myblog"
-LOGINAME = "dongkirk"
-PASSWORD = "githubisNo.1"
+LOGINAME = "admin"
+PASSWORD = "admin"
 AUTHORIZE_EXPIRES = 60*60*24*30
 # 单页限制文章数
 PAGE_NUM = 16

@@ -36,8 +36,7 @@ def before_action():
                     'msg': "身份信息已过期"
                 }
             )
-    except Exception as e:
-        # print(e)
+    except Exception:
         return jsonify(
             {
                 'status': 1,
@@ -101,7 +100,7 @@ def publish():
         "date": datetime.datetime.now().strftime("%Y/%m/%d %H:%M"),
         "view_num": 0,
         "likes": 0,
-        "cmt_num":0,
+        "cmt_num": 0,
         "content": params['markvalue']
     }
     set1.insert(data)
@@ -421,7 +420,7 @@ def announcement():
 @app.route(baseurl + '/comment', methods=["GET", "POST"])
 def comments():
     set1 = db.comments
-    set2= db.blogs
+    set2 = db.blogs
     # 读取评论列表
     if request.method == "GET":
         params = request.args
@@ -470,7 +469,8 @@ def comments():
                 {'comment_id': params["pid"]}, {"_id": 0})
             params["taruser"] = targetCmt["author"]["name"]
         params["_id"] = Comment_id+1
-        set2.update({'article_id': params["post_id"]}, {'$inc': {'cmt_num': 1}})
+        set2.update({'article_id': params["post_id"]}, {
+                    '$inc': {'cmt_num': 1}})
         return jsonify({'status': 0, 'data': params})
 
 
@@ -483,7 +483,6 @@ def siteOption():
         create_time = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
         set1.insert({"name": "dongke", "likes": 0, "blacklist": {
                     "mails": [], "keywords": []}, "create_time": create_time})
-
     return jsonify({'status': 0, 'data': data})
 
 # 点赞文章
@@ -515,4 +514,13 @@ def likeComment():
         comment = set1.find_one({'comment_id': comment_id}, {"_id": 0})
         comment["likes"] += 1
         set1.update({'comment_id': comment_id}, comment)
+    return jsonify({'status': 0})
+
+
+# 添加友情链接
+@app.route(baseurl + '/friendlink', methods=["POST"])
+def addfriendlink():
+    set1 = db.siteOption
+    params = request.get_json()
+    set1.update({}, {"$push": {"friendlinks": params}})
     return jsonify({'status': 0})
