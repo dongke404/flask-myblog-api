@@ -15,6 +15,7 @@ PASSWORD = "admin"
 AUTHORIZE_EXPIRES = 60*60*24*30
 # 单页限制文章数
 PAGE_NUM = 16
+AUTHPWD = "messi"
 
 OriginMap = {
     "原创": 0,
@@ -26,4 +27,9 @@ CategoryMap = {
     "学习": "code",
     "思考": "think",
     "日常": "life"
+}
+
+PrivacyMap = {
+    "公开": 1,
+    "私人": 0,
 }

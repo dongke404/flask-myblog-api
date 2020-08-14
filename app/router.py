@@ -8,7 +8,7 @@ import jwt
 import time
 import datetime
 import re
-from .config import JWTSECRET, LOGINAME, PASSWORD, AUTHORIZE_EXPIRES, OriginMap, CategoryMap, PAGE_NUM, baseurl, DOMIN
+from .config import JWTSECRET, LOGINAME, PASSWORD, AUTHORIZE_EXPIRES, OriginMap, CategoryMap, PAGE_NUM, baseurl, DOMIN, AUTHPWD, PrivacyMap
 from .utils import get_list, mkdir
 CORS(app, supports_credentials=True)
 
@@ -25,6 +25,7 @@ def before_action():
     # print(request.cookies,111,token)
     try:
         usertokenInfo = jwt.decode(token, JWTSECRET, algorithms=['HS256'])
+        print(usertokenInfo)
         ctime = usertokenInfo.get("ctime")
         expires = usertokenInfo.get("expires")
         # print("离身份过期的秒数:",int(expires)-int(time.time()-ctime))
@@ -101,7 +102,8 @@ def publish():
         "view_num": 0,
         "likes": 0,
         "cmt_num": 0,
-        "content": params['markvalue']
+        "content": params['markvalue'],
+        "privacy": PrivacyMap[params['privacy']]
     }
     set1.insert(data)
     return jsonify({'status': 0})
@@ -398,6 +400,14 @@ def reqArticleDetail(article_id):
     for i in related:
         _.append(i)
     data["related"] = _
+    if data.get('privacy')==0:
+        authPwd=request.cookies.get("authPwd")
+        if authPwd == AUTHPWD:   
+            return jsonify({"status": 0, "data": data})           
+        else:
+            # data={}
+            # data["related"] = _
+            return jsonify({"status": 403, "msg": "权限不足", "data": data})
     return jsonify({"status": 0, "data": data})
 
 
