@@ -330,7 +330,7 @@ def reqArticle():
             (current_page-1)*PAGE_NUM).limit(PAGE_NUM)
     elif sort:
         iteration = set1.find({}, {"_id": 0}).sort(
-            "cmt_num", -1).limit(10)
+            "view_num", -1).limit(10)
     elif date:
         date = date.replace("-", "/")
         iteration = set1.find({"date": {"$regex": date}}, {"_id": 0})
