@@ -16,6 +16,7 @@ AUTHORIZE_EXPIRES = 60*60*24*30
 # 单页限制文章数
 PAGE_NUM = 16
 AUTHPWD = "admin" #文章密码
+MoviePath= "D:\电影"
 
 OriginMap = {
     "原创": 0,

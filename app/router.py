@@ -8,7 +8,8 @@ import jwt
 import time
 import datetime
 import re
-from .config import JWTSECRET, LOGINAME, PASSWORD, AUTHORIZE_EXPIRES, OriginMap, CategoryMap, PAGE_NUM, baseurl, DOMIN, AUTHPWD, PrivacyMap
+import os
+from .config import JWTSECRET, LOGINAME, PASSWORD, AUTHORIZE_EXPIRES, OriginMap, CategoryMap, PAGE_NUM, baseurl, DOMIN, AUTHPWD, PrivacyMap, MoviePath
 from .utils import get_list, mkdir
 CORS(app, supports_credentials=True)
 
@@ -284,8 +285,15 @@ def file():
         set1.insert(params)
         return jsonify({'status': 0})
 
+# 添加友情链接
+@app.route(baseurl + '/friendlink', methods=["POST"])
+def addfriendlink():
+    set1 = db.siteOption
+    params = request.get_json()
+    set1.update({}, {"$push": {"friendlinks": params}})
+    return jsonify({'status': 0})
 
-#-------------------------前端请求---------------------------#
+#-------------------------非后台请求---------------------------#
 # "article_id":1,
 # "category": 1,
 # "origin": 1,
@@ -527,10 +535,9 @@ def likeComment():
     return jsonify({'status': 0})
 
 
-# 添加友情链接
-@app.route(baseurl + '/friendlink', methods=["POST"])
-def addfriendlink():
-    set1 = db.siteOption
-    params = request.get_json()
-    set1.update({}, {"$push": {"friendlinks": params}})
-    return jsonify({'status': 0})
+# 获取电影列表
+@app.route(baseurl + '/movielist')
+def reqMovielist():
+    filelist = os.listdir(MoviePath)
+    print(MoviePath,filelist)
+    return jsonify({'data': filelist})
