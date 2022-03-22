@@ -9,7 +9,7 @@ import time
 import datetime
 import re
 import os
-from .config import JWTSECRET, LOGINAME, PASSWORD, AUTHORIZE_EXPIRES, OriginMap, CategoryMap, PAGE_NUM, baseurl, DOMIN, AUTHPWD, PrivacyMap, MoviePath
+from .config import JWTSECRET, LOGINAME, PASSWORD, AUTHORIZE_EXPIRES, OriginMap, CategoryMap, PAGE_NUM, BASEURL, DOMIN, AUTHPWD, PrivacyMap, MoviePath
 from .utils import get_list, mkdir
 CORS(app, supports_credentials=True)
 
@@ -17,7 +17,7 @@ CORS(app, supports_credentials=True)
 # 拦截器(所有post请求需要提供cookie)
 @app.before_request
 def before_action():
-    if request.path in [baseurl + "/login", baseurl + "/comment", baseurl + "/like/comment", baseurl+'/like/site', baseurl + '/like/article']:
+    if request.path in [BASEURL + "/login", BASEURL + "/comment", BASEURL + "/like/comment", BASEURL+'/like/site', BASEURL + '/like/article']:
         return
     if request.method == "GET":
         return
@@ -48,7 +48,7 @@ def before_action():
 
 
 # 登录验证
-@app.route(baseurl + '/login', methods=["POST"])
+@app.route(BASEURL + '/login', methods=["POST"])
 def login():
     data = request.get_json(silent=True)
     if not data:
@@ -74,7 +74,7 @@ def login():
         })
 
 # 发表文章
-@app.route(baseurl + '/publish', methods=["POST"])
+@app.route(BASEURL + '/publish', methods=["POST"])
 def publish():
     params = request.get_json()
     set1 = db.blogs
@@ -110,7 +110,7 @@ def publish():
     return jsonify({'status': 0})
 
 # 上传图片
-@app.route(baseurl + '/uploadImg', methods=["POST"])
+@app.route(BASEURL + '/uploadImg', methods=["POST"])
 def uploadImg():
     img = request.files['file']
     path = '/static/images/article/'
@@ -125,7 +125,7 @@ def uploadImg():
     })
 
 # 添加随便说说
-@app.route(baseurl + '/addtalk', methods=["POST"])
+@app.route(BASEURL + '/addtalk', methods=["POST"])
 def addtalk():
     params = request.get_json()
     date = datetime.datetime.now().strftime("%Y/%m/%d %H:%M"),
@@ -138,7 +138,7 @@ def addtalk():
     return jsonify({'status': 0})
 
 # 修改新的css
-@app.route(baseurl + '/fontcss', methods=["GET", "POST"])
+@app.route(BASEURL + '/fontcss', methods=["GET", "POST"])
 def fontcss():
     set1 = db.fontcss
     if request.method == "GET":
@@ -155,7 +155,7 @@ def fontcss():
         return jsonify({'status': 0})
 
 # 标签操作
-@app.route(baseurl + '/tag', methods=["GET", "POST"])
+@app.route(BASEURL + '/tag', methods=["GET", "POST"])
 def tags():
     set1 = db.tags
     set2 = db.blogs
@@ -187,7 +187,7 @@ def tags():
 
 
 # 图集操作
-@app.route(baseurl + '/album', methods=["GET", "POST"])
+@app.route(BASEURL + '/album', methods=["GET", "POST"])
 def album():
     set1 = db.album
     if request.method == "GET":
@@ -217,7 +217,7 @@ def album():
 
 
 # 图片操作
-@app.route(baseurl + '/photo', methods=["GET", "POST"])
+@app.route(BASEURL + '/photo', methods=["GET", "POST"])
 def photo():
     set1 = db.photos
     if request.method == "GET":
@@ -255,7 +255,7 @@ def photo():
             return jsonify({'status': 0})
 
 # 添加资源链接
-@app.route(baseurl + '/file', methods=["GET", "POST"])
+@app.route(BASEURL + '/file', methods=["GET", "POST"])
 def file():
     set1 = db.files
     if request.method == "GET":
@@ -286,7 +286,7 @@ def file():
         return jsonify({'status': 0})
 
 # 添加友情链接
-@app.route(baseurl + '/friendlink', methods=["POST"])
+@app.route(BASEURL + '/friendlink', methods=["POST"])
 def addfriendlink():
     set1 = db.siteOption
     params = request.get_json()
@@ -294,20 +294,8 @@ def addfriendlink():
     return jsonify({'status': 0})
 
 #-------------------------非后台请求---------------------------#
-# "article_id":1,
-# "category": 1,
-# "origin": 1,
-# "tags": 1,
-# "imgUrl": 1,
-# "title": 1,
-# "description":  1,
-# "date": 1,
-# "view_num": 1,
-# "cmt_num": 1,
-# "likes": 1,
-# "content": 1
 # 获取文章列表
-@app.route(baseurl + '/article')
+@app.route(BASEURL + '/article')
 def reqArticle():
     params = request.args
     # print(params)
@@ -361,7 +349,7 @@ def reqArticle():
 
 
 # 获取时间轴列表
-@app.route(baseurl + '/timeline')
+@app.route(BASEURL + '/timeline')
 def reqTimeline():
     set1 = db.blogs
     set2 = db.announcements
@@ -394,7 +382,7 @@ def reqTimeline():
     return jsonify({'data': resdata})
 
 # 获取文章详情
-@app.route(baseurl + '/article/<int:article_id>')
+@app.route(BASEURL + '/article/<int:article_id>')
 def reqArticleDetail(article_id):
     # print(article_id)
     set1 = db.blogs
@@ -420,7 +408,7 @@ def reqArticleDetail(article_id):
 
 
 # 获取随便说说内容
-@app.route(baseurl + '/announcement')
+@app.route(BASEURL + '/announcement')
 def announcement():
     set1 = db.announcements
     data = []
@@ -435,7 +423,7 @@ def announcement():
 
 
 # 评论操作GET读取,Post发布
-@app.route(baseurl + '/comment', methods=["GET", "POST"])
+@app.route(BASEURL + '/comment', methods=["GET", "POST"])
 def comments():
     set1 = db.comments
     set2 = db.blogs
@@ -493,7 +481,7 @@ def comments():
 
 
 # 获取主站信息
-@app.route(baseurl + '/siteOption')
+@app.route(BASEURL + '/siteOption')
 def siteOption():
     set1 = db.siteOption
     data = set1.find_one({}, {"_id": 0})
@@ -504,7 +492,7 @@ def siteOption():
     return jsonify({'status': 0, 'data': data})
 
 # 点赞文章
-@app.route(baseurl + '/like/article', methods=["POST"])
+@app.route(BASEURL + '/like/article', methods=["POST"])
 def likearticle():
     params = request.get_json()
     article_id = params.get("article_id")
@@ -514,7 +502,7 @@ def likearticle():
 
 
 # 点赞留言板
-@app.route(baseurl + '/like/site', methods=["POST"])
+@app.route(BASEURL + '/like/site', methods=["POST"])
 def likeSite():
     set1 = db.siteOption
     set1.update({}, {'$inc': {'likes': 1}})
@@ -522,7 +510,7 @@ def likeSite():
 
 
 # 点赞评论
-@app.route(baseurl + '/like/comment', methods=["POST"])
+@app.route(BASEURL + '/like/comment', methods=["POST"])
 def likeComment():
     set1 = db.comments
     params = request.get_json()
@@ -536,7 +524,7 @@ def likeComment():
 
 
 # 获取电影列表
-@app.route(baseurl + '/movielist')
+@app.route(BASEURL + '/movielist')
 def reqMovielist():
     filelist = os.listdir(MoviePath)
     print(MoviePath,filelist)
