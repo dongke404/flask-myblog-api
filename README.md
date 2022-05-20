@@ -14,4 +14,4 @@ python manage.py runserver
 [nuxt-myblog](https://github.com/dongke404/nuxt-myblog)
 [vue-myblog-manage](https://github.com/dongke404/vue-myblog-manage)
 
-详细教程搭建个人站点请阅读我的博客 
+详细教程搭建个人站点请阅读我的博客 <https://www.kedong.me/article/80>
