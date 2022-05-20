@@ -1,5 +1,3 @@
-# import app.router
-# import app.myblog
 from app.myblog import myblog
 from app.backstage import backstage
 from app import app

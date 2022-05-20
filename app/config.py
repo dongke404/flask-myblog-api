@@ -21,7 +21,7 @@ AUTHORIZE_EXPIRES = 60*60*24*30 #后台账号过期时间
 # 单页限制文章数
 PAGE_NUM = 16
 AUTHPWD = "admin" #文章密码
-MoviePath= "D:\电影"
+MoviePath= "/static/video" #电影列表地址
 
 OriginMap = {
     "原创": 0,
