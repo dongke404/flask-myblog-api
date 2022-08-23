@@ -28,3 +28,12 @@ def mkdir(path):
         # 如果目录存在则不创建，并提示目录已存在
         print(path + ' 目录已存在')
         return False
+
+# id自增函数
+def insert_doc(doc, collection, db, idname="id" ):
+    doc[idname] = db.seqs.find_and_modify(
+        query={ 'collection' : collection },
+        update={'$inc': {'id': 1}},
+        fields={'id': 1, '_id': 0},
+        new=True 
+    ).get('id')

@@ -2,7 +2,7 @@
 # 主业务逻辑中的视图和路由的定义
 from . import app,db
 from flask_cors import CORS
-from flask import request, jsonify ,Blueprint
+from flask import request, jsonify ,Blueprint, abort
 import math
 import datetime
 import os
@@ -249,3 +249,25 @@ def reqMovielist():
     print(MoviePath,filelist)
     return jsonify({'data': filelist})
 
+# 修改新的css
+@myblog.route(BASEURL + "/fontcss", methods=["GET", "POST"])
+def fontcss():
+    set1 = db.fontcss
+    if request.method == "GET":
+        data = set1.find_one({}, {"_id": 0})
+        return jsonify({"status": 0, "data": data})
+
+
+# 标签操作
+@myblog.route(BASEURL + "/tag", methods=["GET", "POST"])
+def tags():
+    set1 = db.tags
+    set2 = db.blogs
+    if request.method == "GET":
+        cursor = set1.find({}, {"_id": 0})
+        data = []
+        for i in cursor:
+            count = set2.find({"tags": {"$in": [i["name"]]}}, {"_id": 0}).count()
+            i["count"] = count
+            data.append(i)
+        return jsonify({"status": 0, "data": data})

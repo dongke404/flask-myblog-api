@@ -6,7 +6,12 @@
 pip3 install -r requirements.txt  
 运行  
 
-```python
+# 第一次运行创建自增队列来创建自增id
+```bash
+python create.py 
+```
+
+```bash
 python manage.py runserver
 ```
 

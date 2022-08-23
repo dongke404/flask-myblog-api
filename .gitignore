@@ -4,6 +4,7 @@ node_modules
 /venv
 *.py[cod]
 /migrations
+/app/static
 
 # local env files
 .env.local
