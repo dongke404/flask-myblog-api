@@ -1,9 +1,9 @@
 # mongodb地址
 # 开发模式
 # MONGODBHOST = "127.0.0.1:27017"
-MONGODBHOST = "43.155.69.204:37018" #数据库地址
+MONGODBHOST = "45.32.92.168:37018" #数据库地址
 DBUSERNAME = 'admin'
-DBPASSWORD = 'zjh0627520'
+DBPASSWORD = 'jkyyds'
 BASEURL = "/api"
 DOMIN="http://127.0.0.1:3000"
 IMGPATH= 'D:/项目代码/我的博客/flask-myblog-api/app/static/' 
