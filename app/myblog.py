@@ -288,7 +288,7 @@ def comments():
             usersSet.insert({"email": params['author']["email"], "name": params['author']["name"], "site": params['author']["site"], "gravatar": params['author']["gravatar"]})
         params["author"] = params['author']["email"]
         insert_doc(params, "comments", db, "comment_id")
-        if params["p_comment_id"]:
+        if params.get("p_comment_id") :
             insert_doc(params, "comments", db, "comment_id")
             replysSet.insert(params)
         else:
