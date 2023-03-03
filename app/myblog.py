@@ -252,7 +252,6 @@ def comments():
         sort = int(params["sort"])
         post_id = int(params["post_id"])
         data = {}
-        # isReply不等于1的是评论
         commentsSql= commentsSet.find({"post_id": post_id}, {"_id": 0})
         data['count'] = commentsSql.count()
         lst = []
@@ -271,6 +270,12 @@ def comments():
                 .limit(page_num)
             )
         for comment in comments:
+            if comment["author"]:
+                if usersSet.find_one({"email": comment["author"]}, {"_id": 0}):
+                    comment["author"] = usersSet.find_one({"email": comment["author"]}, {"_id": 0})
+                else:
+                    comment["author"] = {"name": "游客", "email": comment["author"], "site": ""}
+
             replys = replysSet.find({"p_comment_id": comment["comment_id"]}, {"_id": 0})
             comment["replys"] = []
             for reply in replys:
@@ -294,10 +299,6 @@ def comments():
         else:
             insert_doc(params, "comments", db, "comment_id")
             commentsSet.insert(params)
-        # if params["pid"]:
-        #     targetCmt = commentsSet.find_one({"comment_id": params["pid"]}, {"_id": 0})
-        #     params["taruser"] = targetCmt["author"]["name"]
-
         blogsSet.update({"article_id": params["post_id"]}, {"$inc": {"cmt_num": 1}})
         return jsonify({"data": 0, "code": 0, "msg": "success"})
 
