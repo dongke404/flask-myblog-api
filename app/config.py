@@ -8,6 +8,8 @@ BASEURL = "/api"
 DOMIN="http://127.0.0.1:3000"
 IMGPATH= 'D:/项目代码/我的博客/flask-myblog-api/app/static/' 
 APPIMGPATH= 'D:/项目代码/我的博客/flask-myblog-api/app/static/'
+FROM_ADDR =  '454661578@qq.com'
+QQEMAILAUTH = 'oliamkklpwtsbhab'
 
 # 生产模式
 # MONGODBHOST = "127.0.0.1:27017"

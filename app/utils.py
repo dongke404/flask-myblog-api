@@ -1,5 +1,38 @@
 
 import datetime
+# 邮件发送
+from .config import FROM_ADDR, QQEMAILAUTH
+from email import encoders
+from email.header import Header
+from email.mime.text import MIMEText
+from email.utils import parseaddr, formataddr
+import smtplib
+# 邮件发送    
+def _format_addr(s):
+    name, addr = parseaddr(s)
+    return formataddr((Header(name, 'utf-8').encode(), addr))
+
+# FROM_ADDR = 'xxx@qq.com' #来源 登陆时要用
+# QQEMAILAUTH = 'xxxxxxxxx' # 授权码
+# to_addr = 'xxxx@qq.com' # 目标地址
+def send_email(to_addr,title,text):
+    try:
+        msg = MIMEText(text, 'plain', 'utf-8')
+        msg['From'] = _format_addr('Kirkdong <%s>' % FROM_ADDR)
+        msg['To'] = _format_addr('管理员 <%s>' % to_addr)
+        msg['Subject'] = Header(title, 'utf-8').encode()
+            
+        smtp_server = 'smtp.qq.com'
+        smtp_port = 587
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.set_debuglevel(1)
+        server.login(FROM_ADDR, QQEMAILAUTH)
+        server.sendmail(FROM_ADDR, [to_addr], msg.as_string())
+        server.quit()
+    except Exception as e:
+        print(e)
+        return False
 
 # 时间轴处理
 def get_list(s):

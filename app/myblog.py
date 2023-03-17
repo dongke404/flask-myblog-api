@@ -8,8 +8,7 @@ import math
 import datetime
 import os
 from .config import PAGE_NUM, BASEURL, AUTHPWD, MoviePath
-from .utils import get_list
-from .utils import insert_doc
+from .utils import get_list, send_email, insert_doc
 
 CORS(app, supports_credentials=True)
 
@@ -20,52 +19,24 @@ myblog = Blueprint("myblog", __name__)
 import requests
 
 
+# tweet模块
 @myblog.route(BASEURL + "/tweet", methods=["GET"])
 def tweet():
     params = request.args
-    time.sleep(5)
-    # diyurl = params.get("url")
-    # headers = {
-    #     "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAAGsHlgEAAAAAb%2B9PlDA4s0RymxfRNxzf0pFmldU%3DZJcxdDn2dZ0XFO2muw4Yd9c5FKOeVGhsRePSmMXcipaw2VhEEV"
-    # }
-    # url = "https://api.twitter.com/2/" + diyurl
-    # r=requests.get(url,headers=headers)
-    # print(r.json())
-    # return r.json()
-    return jsonify(
-        {
-            "code": 0,
-            "msg": "success",
-            "data": [
-                {
-                    "edit_history_tweet_ids": ["1"],
-                    "id": "1",
-                    "text": "111111111",
-                },
-                {
-                    "edit_history_tweet_ids": ["1619581346988580864"],
-                    "id": "1619581346988580864",
-                    "text": "test img https://t.co/2aFbQxuRjA",
-                },
-                {
-                    "edit_history_tweet_ids": ["1619531173289660416"],
-                    "id": "1619531173289660416",
-                    "text": "testapi",
-                },
-                {
-                    "edit_history_tweet_ids": ["1226503216264810496"],
-                    "id": "1226503216264810496",
-                    "text": "I just deployed a high performance cloud server on https://t.co/I75Qau2936 ! #ILoveVultr #Cloud https://t.co/GwEryuU3Uz",
-                },
-            ],
-            "meta": {
-                "newest_id": "1619581346988580864",
-                "oldest_id": "1226503216264810496",
-                "result_count": 3,
-            },
-        }
-    )
-
+    diyurl = params.get("url")
+    headers = {
+        "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAAGsHlgEAAAAAb%2B9PlDA4s0RymxfRNxzf0pFmldU%3DZJcxdDn2dZ0XFO2muw4Yd9c5FKOeVGhsRePSmMXcipaw2VhEEV"
+    }
+    url = "https://api.twitter.com/2/" + diyurl
+    r=requests.get(url,headers=headers)
+    data = r.json().get("data")
+    ids = [i.get("id") for i in data]
+    ids = ",".join(ids)
+    url1 = "https://api.twitter.com/2/tweets?ids=" + ids + "&tweet.fields=created_at,public_metrics"
+    r1=requests.get(url1,headers=headers)
+    data1 = r1.json().get("data")
+    print(r1.json())
+    return jsonify({"code": 0,  "msg": "success", "data": data1})
 
 # 获取文章列表
 @myblog.route(BASEURL + "/article")
@@ -145,42 +116,6 @@ def reqArticle():
     data["pagination"] = pagination
     return jsonify({"data": data, "code": 0, "msg": "success"})
 
-
-# 获取时间轴列表
-@myblog.route(BASEURL + "/timeline")
-def reqTimeline():
-    set1 = db.blogs
-    set2 = db.announcements
-    blog_cursor = set1.find(
-        {}, {"_id": 0, "article_id": 1, "title": 1, "description": 1, "date": 1,"view_num" : 1,"cmt_num" : 1,'likes':1}
-    )
-    data = []
-    for i in blog_cursor:
-        data.append(i)
-    data = sorted(data, key=lambda x: get_list(x["date"]), reverse=True)
-    # 按月组合数据
-    res = {}
-    curmonth = data[0]["date"][0:7]
-    res[curmonth] = []
-    for item in data:
-        if item["date"][0:7] == curmonth:
-            res[curmonth].append(item)
-        else:
-            curmonth = item["date"][0:7]
-            res[curmonth] = []
-            res[curmonth].append(item)
-    
-    resdata = []
-    for k, v in res.items():
-        dic = {}
-        dic["year"] = k[0:4]
-        #去掉0
-        dic["month"] = k[5:7].lstrip("0")
-        dic["articles"] = v
-        resdata.append(dic)
-    return jsonify({"data": resdata, "code": 0, "msg": "success"})
-
-
 # 获取文章详情
 @myblog.route(BASEURL + "/article/<int:article_id>")
 def reqArticleDetail(article_id):
@@ -197,11 +132,11 @@ def reqArticleDetail(article_id):
     )
     data = set1.find_one({"article_id": article_id}, {"_id": 0})
     if not data:
-        return jsonify({"status": 404, "msg": "页面不存在", "data": {}})
+        return jsonify({"code": 404, "msg": "文章不存在", "data": {}})
     related = set1.aggregate(
         [
-            {"$sample": {"size": 10}},
-            {"$project": {"_id": 0, "article_id": 1, "imgUrl": 1, "title": 1}},
+            {"$sample": {"size": 6}},
+            {"$project": {"_id": 0, "article_id": 1, "imgUrl": 1, "title": 1 , "description": 1}},
         ],
     )
     _ = []
@@ -215,26 +150,73 @@ def reqArticleDetail(article_id):
         else:
             # data={}
             # data["related"] = _
-            return jsonify({"status": 403, "msg": "权限不足", "data": data})
+            return jsonify({"code": 403, "msg": "权限不足", "data": data})
     return jsonify({"data": data, "code": 0, "msg": "success"})
 
 
-# 获取随便说说内容
-@myblog.route(BASEURL + "/announcement")
-def announcement():
-    set1 = db.announcements
-    data = []
-    for x in set1.find(
+# 归档模块
+@myblog.route(BASEURL + "/timeline")
+def reqTimeline():
+    set1 = db.blogs
+    set2 = db.announcements
+    blog_cursor = set1.find(
         {},
         {
             "_id": 0,
-            "say": 1,
+            "article_id": 1,
+            "title": 1,
+            "description": 1,
             "date": 1,
+            "view_num": 1,
+            "cmt_num": 1,
+            "likes": 1,
         },
-    ).sort("_id", -1):
-        data.append(x)
-    data = data[0:10]
-    return jsonify({"status": 0, "data": data})
+    )
+    data = []
+    for i in blog_cursor:
+        data.append(i)
+    data = sorted(data, key=lambda x: get_list(x["date"]), reverse=True)
+    # 按月组合数据
+    res = {}
+    curmonth = data[0]["date"][0:7]
+    res[curmonth] = []
+    for item in data:
+        if item["date"][0:7] == curmonth:
+            res[curmonth].append(item)
+        else:
+            curmonth = item["date"][0:7]
+            res[curmonth] = []
+            res[curmonth].append(item)
+
+    resdata = []
+    for k, v in res.items():
+        dic = {}
+        dic["year"] = k[0:4]
+        # 去掉0
+        dic["month"] = k[5:7].lstrip("0")
+        dic["articles"] = v
+        resdata.append(dic)
+    return jsonify({"data": resdata, "code": 0, "msg": "success"})
+
+
+# 评论注册用户
+@myblog.route(BASEURL + "/register", methods=["POST"])
+def register():
+    usersSet = db.users
+    params = request.get_json()
+    email = params["email"]
+    if usersSet.find_one({"email": email}):
+        #更新用户信息
+        usersSet.update(
+            {"email":email},
+            {"$set":{"name": params["name"], "site": params["site"]}},
+        )
+    else:
+        insert_doc(params, "users", db, "user_id")
+        usersSet.insert_one(params)
+    user = usersSet.find_one({"email": email},{"_id":0})
+    return jsonify({"code": 0, "msg": "success",'data':user})
+
 
 
 # 评论操作GET读取,Post发布
@@ -248,60 +230,159 @@ def comments():
     if request.method == "GET":
         params = request.args
         page = int(params["page"])
-        page_num = int(params["page_num"])
+        limit = int(params["limit"])
         sort = int(params["sort"])
         post_id = int(params["post_id"])
         data = {}
-        commentsSql= commentsSet.find({"post_id": post_id}, {"_id": 0})
-        data['count'] = commentsSql.count()
+        commentsSql = commentsSet.find({"post_id": post_id}, {"_id": 0})
+        data["count"] = commentsSql.count()
         lst = []
         if sort == 2:
             comments = (
-                commentsSql
-                .sort("likes", -1)
-                .skip((page - 1) * page_num)
-                .limit(page_num)
+                commentsSql.sort("reply_num", -1).skip((page - 1) * limit).limit(limit)
             )
+        elif sort == 1:
+            comments = commentsSql.skip((page - 1) * limit).limit(limit)
         else:
             comments = (
-                commentsSql
-                .sort("comment_id", -1)
-                .skip((page - 1) * page_num)
-                .limit(page_num)
+                commentsSql.sort("comment_id", -1).skip((page - 1) * limit).limit(limit)
             )
         for comment in comments:
             if comment["author"]:
-                if usersSet.find_one({"email": comment["author"]}, {"_id": 0}):
-                    comment["author"] = usersSet.find_one({"email": comment["author"]}, {"_id": 0})
+                if usersSet.find_one({"user_id": comment["author"]}, {"_id": 0}):
+                    comment["author"]  = usersSet.find_one(
+                        {"user_id": comment["author"]}, {"_id": 0, "email": 0}
+                    )
                 else:
-                    comment["author"] = {"name": "游客", "email": comment["author"], "site": ""}
+                    comment["author"] = {"name": "游客", "site": ""}
 
             replys = replysSet.find({"p_comment_id": comment["comment_id"]}, {"_id": 0})
             comment["replys"] = []
             for reply in replys:
+                if reply["author"]:
+                    if usersSet.find_one({"user_id": reply["author"]}, {"_id": 0}):
+                        reply["author"] = usersSet.find_one(
+                            {"user_id": reply["author"]}, {"_id": 0, "email": 0}
+                        )
+                    else:
+                        reply["author"] = {
+                            "name": "游客",
+                            "site": "",
+                        }
                 comment["replys"].append(reply)
+            # sql写入回复数
+            commentsSet.update(
+                {"comment_id": comment["comment_id"]},
+                {"$set": {"reply_num": len(comment["replys"])}},
+            )
             lst.append(comment)
         data["comments"] = lst
         return jsonify({"data": data, "code": 0, "msg": "success"})
     else:
         params = request.get_json()
-        # ip = request.headers.get('X-Forwarded-For')
+        # 获取ip
+        ip = request.headers.get("Cf-Connecting-Ip")
+        url = "http://ip-api.com/json/{0}?lang=zh-CN".format(ip)
+        r = requests.post(url)
+        ipInfo = r.json()
+        if ipInfo["status"] == "success":
+            _obj = {}
+            # {'status': 'success', 'country': '中国', 'countryCode': 'CN', 'region': 'ZJ', 'regionName': '浙江省', 'city': '杭州', 'zip': '', 'lat': 30.2994, 'lon': 120.1612, 'timezone': 'Asia/Shanghai', 'isp': 'CHINANET', 'org': 'China Telecom', 'as': 'AS4134 CHINANET-BACKBONE', 'query': '240e:390:a33:1591:c10f:55c0:9de6:75c9'}
+            _obj["country"] = ipInfo["country"]
+            _obj["countryCode"] = ipInfo["countryCode"]
+            _obj["region"] = ipInfo["region"]
+            _obj["regionName"] = ipInfo["regionName"]
+            _obj["city"] = ipInfo["city"]
+            _obj["isp"] = ipInfo["isp"]
+            params["ipInfo"] = _obj
         params["create_time"] = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
         params["likes"] = 0
-        user = usersSet.find_one({"email": params['author']["email"]}, {"_id": 0})
+        user = usersSet.find_one({"email": params["author"]["email"]}, {"_id": 0})
         if not user:
-            usersSet.insert({"email": params['author']["email"], "name": params['author']["name"], "site": params['author']["site"], "gravatar": params['author']["gravatar"]})
-        params["author"] = params['author']["email"]
-        insert_doc(params, "comments", db, "comment_id")
-        if params.get("p_comment_id") :
+            insert_doc(params["author"], "users", db, "user_id")
+            usersSet.insert(params["author"])
+            user = usersSet.find_one({"email": params["author"]["email"]}, {"_id": 0})
+            params["author"] = params["author"]["user_id"]
+        else:
+            params["author"] = user["user_id"]
+        # 有p_comment_id 是回复 没有是评论
+        to_author_email = ""
+        if params.get("p_comment_id"):
             insert_doc(params, "comments", db, "comment_id")
+            if params["target_comment_id"] != params["p_comment_id"]:
+                to_reply = replysSet.find_one(
+                    {"comment_id": params["target_comment_id"]}, {"_id": 0}
+                )
+                to_author = usersSet.find_one(
+                    {"user_id": to_reply["author"]}, {"_id": 0}
+                )
+                if to_author:
+                    params["to_author"] = to_author["user_id"]
+                    params["to_author_name"] = to_author["name"]
+                    to_author_email = to_author["email"]
+                else:
+                    params["to_author_name"] = "匿名用户"
             replysSet.insert(params)
+            # title = "您在kirkdong的博客有了新的回复"
+            # content = "您在kirkdong的博客有了新的回复，快去看看吧！"
+            # if to_author_email:
+            #     send_email(to_author_email, title, content)
         else:
             insert_doc(params, "comments", db, "comment_id")
             commentsSet.insert(params)
+            # send_email('454661578@qq.com', '您在kirkdong的博客有了新的评论', params["content"])
         blogsSet.update({"article_id": params["post_id"]}, {"$inc": {"cmt_num": 1}})
-        return jsonify({"data": 0, "code": 0, "msg": "success"})
+        return jsonify({"data": user , "code": 0, "msg": "success"})
 
+# 点赞评论
+@myblog.route(BASEURL + "/likeComment", methods=["POST"])
+def likeComment():
+    commentsSet = db.comments
+    replysSet = db.replys
+    usersSet = db.users
+    params = request.get_json()
+    comment_id =int(params.get("comment_id"))
+    isReply = params.get("isReply")
+    user_id = params.get("user_id")
+    
+    if user_id:
+        # 点赞 去除 踩
+        usersSet.update({"user_id":int(user_id)}, {"$addToSet": {"like_comments": comment_id},"$pull": {"dislike_comments": comment_id}})
+        replysSet.update(
+            {"comment_id": comment_id},
+            {"$inc": {"likes": 1}},
+        )
+    else:
+        if isReply:
+            replysSet.update({"comment_id": comment_id}, {"$inc": {"likes": 1}})
+        else:
+            commentsSet.update({"comment_id": comment_id}, {"$inc": {"likes": 1}})
+    return jsonify({"data": {}, "code": 0, "msg": "success"})
+
+# 踩评论
+@myblog.route(BASEURL + "/dislikeComment", methods=["POST"])
+def dislikeComment():
+    commentsSet = db.comments
+    replysSet = db.replys
+    usersSet = db.users
+    params = request.get_json()
+    comment_id = int(params.get("comment_id"))
+    isReply = params.get("isReply")
+    user_id = params.get("user_id")
+    if user_id:
+        # 踩 去除 点赞
+        usersSet.update({"user_id":int(user_id)}, {"$addToSet": {"dislike_comments": comment_id},"$pull": {"like_comments": comment_id}})
+        replysSet.update(
+            {"comment_id": comment_id},
+            {"$inc": {"dislikes": 1}},
+        )
+    else:
+        if isReply:
+            replysSet.update({"comment_id": comment_id}, {"$inc": {"dislikes": 1}})
+        else:
+            commentsSet.update({"comment_id": comment_id}, {"$inc": {"dislikes": 1}})
+
+    return jsonify({"data": {}, "code": 0, "msg": "success"})
 
 # 获取主站信息
 @myblog.route(BASEURL + "/siteOption")
@@ -320,6 +401,7 @@ def siteOption():
         )
     return jsonify({"data": data, "code": 0, "msg": "success"})
 
+
 # 统计访问量,点赞,评论,总文章
 @myblog.route(BASEURL + "/statistics")
 def statistics():
@@ -331,7 +413,7 @@ def statistics():
     data["blog_num"] = set1.count()
     data["comment_num"] = set2.count()
     data["likes"] = set3.find_one({}, {"_id": 0})["likes"]
-    #view_num文档当日访问量
+    # view_num文档当日访问量
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     data["view_num_today"] = set4.find_one({"date": today}, {"_id": 0})
     if data["view_num_today"]:
@@ -340,14 +422,24 @@ def statistics():
         data["view_num_today"] = 0
     return jsonify({"data": data, "code": 0, "msg": "success"})
 
+
 # 点赞文章
-@myblog.route(BASEURL + "/like/article", methods=["POST"])
+@myblog.route(BASEURL + "/vote_article", methods=["POST"])
 def likearticle():
+    usersSet = db.users
+    blogsSet = db.blogs
     params = request.get_json()
-    article_id = params.get("article_id")
-    set1 = db.blogs
-    set1.update({"article_id": article_id}, {"$inc": {"likes": 1}})
-    return jsonify({"status": 0})
+    article_id = int(params.get("article_id")) 
+    user_id = params.get("user_id")
+    #更新用户喜欢的文章
+    if user_id:
+        usersSet.update({"user_id": int(user_id)}, {"$addToSet": {"like_articles": article_id}})
+        #+1
+        blogsSet.update({"article_id": article_id}, {"$inc": {"likes": 1}})
+    else:
+        blogsSet.update({"article_id": article_id}, {"$inc": {"likes": 1}})
+    return jsonify({"data": 0, "code": 0, "msg": "success"})
+
 
 
 # 点赞留言板
@@ -357,36 +449,12 @@ def likeSite():
     set1.update({}, {"$inc": {"likes": 1}})
     return jsonify({"status": 0})
 
-
-# 点赞评论
-@myblog.route(BASEURL + "/like/comment", methods=["POST"])
-def likeComment():
-    set1 = db.comments
-    params = request.get_json()
-    comment_id = params.get("comment_id")
-    # print(comment_id)
-    if comment_id:
-        comment = set1.find_one({"comment_id": comment_id}, {"_id": 0})
-        comment["likes"] += 1
-        set1.update({"comment_id": comment_id}, comment)
-    return jsonify({"status": 0})
-
-
 # 获取电影列表
 @myblog.route(BASEURL + "/movielist")
 def reqMovielist():
     filelist = os.listdir(MoviePath)
     print(MoviePath, filelist)
     return jsonify({"data": filelist})
-
-
-# 修改新的css
-@myblog.route(BASEURL + "/fontcss", methods=["GET", "POST"])
-def fontcss():
-    set1 = db.fontcss
-    if request.method == "GET":
-        data = set1.find_one({}, {"_id": 0})
-        return jsonify({"status": 0, "data": data})
 
 
 # 标签操作
@@ -404,7 +472,7 @@ def tags():
         return jsonify({"data": data, "code": 0, "msg": "success"})
 
 
-# 测试接口
+# 测试功能接口
 @myblog.route(BASEURL + "/testport")
 def testport():
     # 延时2秒
