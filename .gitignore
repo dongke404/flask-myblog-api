@@ -5,6 +5,7 @@ node_modules
 *.py[cod]
 /migrations
 /app/static
+/app/config.py
 
 # local env files
 .env.local

@@ -35,7 +35,6 @@ def tweet():
     url1 = "https://api.twitter.com/2/tweets?ids=" + ids + "&tweet.fields=created_at,public_metrics"
     r1=requests.get(url1,headers=headers)
     data1 = r1.json().get("data")
-    print(r1.json())
     return jsonify({"code": 0,  "msg": "success", "data": data1})
 
 # 获取文章列表
@@ -199,17 +198,20 @@ def reqTimeline():
     return jsonify({"data": resdata, "code": 0, "msg": "success"})
 
 
-# 评论注册用户
+# 评论打钩注册用户
 @myblog.route(BASEURL + "/register", methods=["POST"])
 def register():
     usersSet = db.users
     params = request.get_json()
     email = params["email"]
-    if usersSet.find_one({"email": email}):
+    user = usersSet.find_one({"email": email},{"_id":0})
+    if user:
+        if user['email'] == "dongkirk1992@gmail.com":
+            return jsonify({"code": 1, "msg": "无法修改"})
         #更新用户信息
         usersSet.update(
             {"email":email},
-            {"$set":{"name": params["name"], "site": params["site"]}},
+            {"$set":{"name": params["name"], "site": params["site"],"gravatar": params["gravatar"]}},
         )
     else:
         insert_doc(params, "users", db, "user_id")
@@ -304,6 +306,10 @@ def comments():
             user = usersSet.find_one({"email": params["author"]["email"]}, {"_id": 0})
             params["author"] = params["author"]["user_id"]
         else:
+            usersSet.update(
+                {"email": params["author"]["email"]},
+                {"$set": {"gravatar":params["author"]["gravatar"]}},
+            )
             params["author"] = user["user_id"]
         # 有p_comment_id 是回复 没有是评论
         to_author_email = ""
@@ -323,14 +329,14 @@ def comments():
                 else:
                     params["to_author_name"] = "匿名用户"
             replysSet.insert(params)
-            # title = "您在kirkdong的博客有了新的回复"
-            # content = "您在kirkdong的博客有了新的回复，快去看看吧！"
-            # if to_author_email:
-            #     send_email(to_author_email, title, content)
+            title = "您在kirkdong的博客有了新的回复"
+            content = "您在kirkdong的博客有了新的回复，快去看看吧！"
+            if to_author_email:
+                send_email(to_author_email, title, content)
         else:
             insert_doc(params, "comments", db, "comment_id")
             commentsSet.insert(params)
-            # send_email('454661578@qq.com', '您在kirkdong的博客有了新的评论', params["content"])
+            send_email('454661578@qq.com', '您在kirkdong的博客有了新的评论', params["content"])
         blogsSet.update({"article_id": params["post_id"]}, {"$inc": {"cmt_num": 1}})
         return jsonify({"data": user , "code": 0, "msg": "success"})
 
@@ -348,15 +354,10 @@ def likeComment():
     if user_id:
         # 点赞 去除 踩
         usersSet.update({"user_id":int(user_id)}, {"$addToSet": {"like_comments": comment_id},"$pull": {"dislike_comments": comment_id}})
-        replysSet.update(
-            {"comment_id": comment_id},
-            {"$inc": {"likes": 1}},
-        )
+    if isReply:
+        replysSet.update({"comment_id": comment_id}, {"$inc": {"likes": 1}})
     else:
-        if isReply:
-            replysSet.update({"comment_id": comment_id}, {"$inc": {"likes": 1}})
-        else:
-            commentsSet.update({"comment_id": comment_id}, {"$inc": {"likes": 1}})
+        commentsSet.update({"comment_id": comment_id}, {"$inc": {"likes": 1}})
     return jsonify({"data": {}, "code": 0, "msg": "success"})
 
 # 踩评论
@@ -372,15 +373,10 @@ def dislikeComment():
     if user_id:
         # 踩 去除 点赞
         usersSet.update({"user_id":int(user_id)}, {"$addToSet": {"dislike_comments": comment_id},"$pull": {"like_comments": comment_id}})
-        replysSet.update(
-            {"comment_id": comment_id},
-            {"$inc": {"dislikes": 1}},
-        )
+    if isReply:
+        replysSet.update({"comment_id": comment_id}, {"$inc": {"dislikes": 1}})
     else:
-        if isReply:
-            replysSet.update({"comment_id": comment_id}, {"$inc": {"dislikes": 1}})
-        else:
-            commentsSet.update({"comment_id": comment_id}, {"$inc": {"dislikes": 1}})
+        commentsSet.update({"comment_id": comment_id}, {"$inc": {"dislikes": 1}})
 
     return jsonify({"data": {}, "code": 0, "msg": "success"})
 
@@ -453,7 +449,6 @@ def likeSite():
 @myblog.route(BASEURL + "/movielist")
 def reqMovielist():
     filelist = os.listdir(MoviePath)
-    print(MoviePath, filelist)
     return jsonify({"data": filelist})
 
 

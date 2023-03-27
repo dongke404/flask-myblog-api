@@ -65,7 +65,7 @@ def user_ip():
 def login():
     data = request.get_json(silent=True)
     if not data:
-        return jsonify({"status": 1, "msg": "请求失败"})
+        return jsonify({"code": 1, "msg": "请求失败"})
     loginname = data.get("loginname")
     password = data.get("password")
     if loginname == LOGINAME and password == PASSWORD:
