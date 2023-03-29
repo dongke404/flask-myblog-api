@@ -3,14 +3,14 @@
 import time
 from . import app, db
 from flask_cors import CORS
-from flask import request, jsonify, Blueprint, abort
+from flask import request, jsonify, Blueprint
 import math
 import datetime
 import os
-from .config import PAGE_NUM, BASEURL, AUTHPWD, MoviePath
+from .config import BASEURL, AUTHPWD, MoviePath, DEV
 from .utils import get_list, send_email, insert_doc
 
-CORS(app, supports_credentials=True)
+CORS(app, supports_credentials=DEV)
 
 # 蓝图注册模块
 myblog = Blueprint("myblog", __name__)
@@ -28,14 +28,19 @@ def tweet():
         "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAAGsHlgEAAAAAb%2B9PlDA4s0RymxfRNxzf0pFmldU%3DZJcxdDn2dZ0XFO2muw4Yd9c5FKOeVGhsRePSmMXcipaw2VhEEV"
     }
     url = "https://api.twitter.com/2/" + diyurl
-    r=requests.get(url,headers=headers)
+    r = requests.get(url, headers=headers)
     data = r.json().get("data")
     ids = [i.get("id") for i in data]
     ids = ",".join(ids)
-    url1 = "https://api.twitter.com/2/tweets?ids=" + ids + "&tweet.fields=created_at,public_metrics"
-    r1=requests.get(url1,headers=headers)
+    url1 = (
+        "https://api.twitter.com/2/tweets?ids="
+        + ids
+        + "&tweet.fields=created_at,public_metrics"
+    )
+    r1 = requests.get(url1, headers=headers)
     data1 = r1.json().get("data")
-    return jsonify({"code": 0,  "msg": "success", "data": data1})
+    return jsonify({"code": 0, "msg": "success", "data": data1})
+
 
 # 获取文章列表
 @myblog.route(BASEURL + "/article")
@@ -115,6 +120,7 @@ def reqArticle():
     data["pagination"] = pagination
     return jsonify({"data": data, "code": 0, "msg": "success"})
 
+
 # 获取文章详情
 @myblog.route(BASEURL + "/article/<int:article_id>")
 def reqArticleDetail(article_id):
@@ -135,7 +141,15 @@ def reqArticleDetail(article_id):
     related = set1.aggregate(
         [
             {"$sample": {"size": 6}},
-            {"$project": {"_id": 0, "article_id": 1, "imgUrl": 1, "title": 1 , "description": 1}},
+            {
+                "$project": {
+                    "_id": 0,
+                    "article_id": 1,
+                    "imgUrl": 1,
+                    "title": 1,
+                    "description": 1,
+                }
+            },
         ],
     )
     _ = []
@@ -204,21 +218,26 @@ def register():
     usersSet = db.users
     params = request.get_json()
     email = params["email"]
-    user = usersSet.find_one({"email": email},{"_id":0})
+    user = usersSet.find_one({"email": email}, {"_id": 0})
     if user:
-        if user['email'] == "dongkirk1992@gmail.com":
-            return jsonify({"code": 1, "msg": "无法修改"})
-        #更新用户信息
+        if user["email"] == "dongkirk1992@gmail.com":
+            return jsonify({"code": 0, "msg": "success", "data": user})
+        # 更新用户信息
         usersSet.update(
-            {"email":email},
-            {"$set":{"name": params["name"], "site": params["site"],"gravatar": params["gravatar"]}},
+            {"email": email},
+            {
+                "$set": {
+                    "name": params["name"],
+                    "site": params["site"],
+                    "gravatar": params["gravatar"],
+                }
+            },
         )
     else:
         insert_doc(params, "users", db, "user_id")
         usersSet.insert_one(params)
-    user = usersSet.find_one({"email": email},{"_id":0})
-    return jsonify({"code": 0, "msg": "success",'data':user})
-
+    user = usersSet.find_one({"email": email}, {"_id": 0})
+    return jsonify({"code": 0, "msg": "success", "data": user})
 
 
 # 评论操作GET读取,Post发布
@@ -252,7 +271,7 @@ def comments():
         for comment in comments:
             if comment["author"]:
                 if usersSet.find_one({"user_id": comment["author"]}, {"_id": 0}):
-                    comment["author"]  = usersSet.find_one(
+                    comment["author"] = usersSet.find_one(
                         {"user_id": comment["author"]}, {"_id": 0, "email": 0}
                     )
                 else:
@@ -308,7 +327,7 @@ def comments():
         else:
             usersSet.update(
                 {"email": params["author"]["email"]},
-                {"$set": {"gravatar":params["author"]["gravatar"]}},
+                {"$set": {"gravatar": params["author"]["gravatar"]}},
             )
             params["author"] = user["user_id"]
         # 有p_comment_id 是回复 没有是评论
@@ -336,9 +355,10 @@ def comments():
         else:
             insert_doc(params, "comments", db, "comment_id")
             commentsSet.insert(params)
-            send_email('454661578@qq.com', '您在kirkdong的博客有了新的评论', params["content"])
+            send_email("454661578@qq.com", "您在kirkdong的博客有了新的评论", params["content"])
         blogsSet.update({"article_id": params["post_id"]}, {"$inc": {"cmt_num": 1}})
-        return jsonify({"data": user , "code": 0, "msg": "success"})
+        return jsonify({"data": user, "code": 0, "msg": "success"})
+
 
 # 点赞评论
 @myblog.route(BASEURL + "/likeComment", methods=["POST"])
@@ -347,18 +367,25 @@ def likeComment():
     replysSet = db.replys
     usersSet = db.users
     params = request.get_json()
-    comment_id =int(params.get("comment_id"))
+    comment_id = int(params.get("comment_id"))
     isReply = params.get("isReply")
     user_id = params.get("user_id")
-    
+
     if user_id:
         # 点赞 去除 踩
-        usersSet.update({"user_id":int(user_id)}, {"$addToSet": {"like_comments": comment_id},"$pull": {"dislike_comments": comment_id}})
+        usersSet.update(
+            {"user_id": int(user_id)},
+            {
+                "$addToSet": {"like_comments": comment_id},
+                "$pull": {"dislike_comments": comment_id},
+            },
+        )
     if isReply:
         replysSet.update({"comment_id": comment_id}, {"$inc": {"likes": 1}})
     else:
         commentsSet.update({"comment_id": comment_id}, {"$inc": {"likes": 1}})
     return jsonify({"data": {}, "code": 0, "msg": "success"})
+
 
 # 踩评论
 @myblog.route(BASEURL + "/dislikeComment", methods=["POST"])
@@ -372,13 +399,20 @@ def dislikeComment():
     user_id = params.get("user_id")
     if user_id:
         # 踩 去除 点赞
-        usersSet.update({"user_id":int(user_id)}, {"$addToSet": {"dislike_comments": comment_id},"$pull": {"like_comments": comment_id}})
+        usersSet.update(
+            {"user_id": int(user_id)},
+            {
+                "$addToSet": {"dislike_comments": comment_id},
+                "$pull": {"like_comments": comment_id},
+            },
+        )
     if isReply:
         replysSet.update({"comment_id": comment_id}, {"$inc": {"dislikes": 1}})
     else:
         commentsSet.update({"comment_id": comment_id}, {"$inc": {"dislikes": 1}})
 
     return jsonify({"data": {}, "code": 0, "msg": "success"})
+
 
 # 获取主站信息
 @myblog.route(BASEURL + "/siteOption")
@@ -405,9 +439,10 @@ def statistics():
     set2 = db.comments
     set3 = db.siteOption
     set4 = db.view_num
+    set5 = db.replys
     data = {}
     data["blog_num"] = set1.count()
-    data["comment_num"] = set2.count()
+    data["comment_num"] = set2.count() + set5.count()
     data["likes"] = set3.find_one({}, {"_id": 0})["likes"]
     # view_num文档当日访问量
     today = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -425,17 +460,18 @@ def likearticle():
     usersSet = db.users
     blogsSet = db.blogs
     params = request.get_json()
-    article_id = int(params.get("article_id")) 
+    article_id = int(params.get("article_id"))
     user_id = params.get("user_id")
-    #更新用户喜欢的文章
+    # 更新用户喜欢的文章
     if user_id:
-        usersSet.update({"user_id": int(user_id)}, {"$addToSet": {"like_articles": article_id}})
-        #+1
+        usersSet.update(
+            {"user_id": int(user_id)}, {"$addToSet": {"like_articles": article_id}}
+        )
+        # +1
         blogsSet.update({"article_id": article_id}, {"$inc": {"likes": 1}})
     else:
         blogsSet.update({"article_id": article_id}, {"$inc": {"likes": 1}})
     return jsonify({"data": 0, "code": 0, "msg": "success"})
-
 
 
 # 点赞留言板
@@ -444,6 +480,7 @@ def likeSite():
     set1 = db.siteOption
     set1.update({}, {"$inc": {"likes": 1}})
     return jsonify({"status": 0})
+
 
 # 获取电影列表
 @myblog.route(BASEURL + "/movielist")
