@@ -1,7 +1,5 @@
 # 后台接口
 # 主业务逻辑中的视图和路由的定义
-from curses.has_key import has_key
-from unicodedata import name
 from . import app, db
 from flask_cors import CORS
 from flask import request, jsonify, Blueprint
@@ -20,7 +18,7 @@ from .config import (
     APPIMGPATH,
 )
 from .map import OriginMap, CategoryMap, PrivacyMap
-from .utils import insert_doc
+from .utils import insert_doc,update_rss
 import requests
 
 CORS(app, supports_credentials=True)
@@ -160,6 +158,7 @@ def publish():
         }
         insert_doc(data, "blogs", db, "article_id")
         set1.insert(data)
+        # 更新 RSS 文件，使用feedgen 模块
     else:
         data = {
             "category": CategoryMap[params["category"]],
@@ -173,6 +172,7 @@ def publish():
         }
         data["article_id"] = params["article_id"]
         set1.update({"article_id": params["article_id"]}, {"$set": data})
+    update_rss(set1)
     return jsonify({"code": 0, "msg": "success"})
 
 

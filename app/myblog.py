@@ -7,7 +7,7 @@ from flask import request, jsonify, Blueprint
 import math
 import datetime
 import os
-from .config import BASEURL, AUTHPWD, MoviePath, DEV
+from .config import BASEURL, AUTHPWD, MoviePath, DEV, TWITTERTOKEN
 from .utils import get_list, send_email, insert_doc
 
 CORS(app, supports_credentials=DEV)
@@ -25,7 +25,7 @@ def tweet():
     params = request.args
     diyurl = params.get("url")
     headers = {
-        "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAAGsHlgEAAAAAb%2B9PlDA4s0RymxfRNxzf0pFmldU%3DZJcxdDn2dZ0XFO2muw4Yd9c5FKOeVGhsRePSmMXcipaw2VhEEV"
+        "Authorization": TWITTERTOKEN
     }
     url = "https://api.twitter.com/2/" + diyurl
     r = requests.get(url, headers=headers)
@@ -302,7 +302,8 @@ def comments():
     else:
         params = request.get_json()
         # 获取ip
-        ip = request.headers.get("Cf-Connecting-Ip")
+        ip = request.headers.get("X-Real-IP")
+        # ip = request.headers.get("Cf-Connecting-Ip")
         url = "http://ip-api.com/json/{0}?lang=zh-CN".format(ip)
         r = requests.post(url)
         ipInfo = r.json()
@@ -510,3 +511,4 @@ def testport():
     # 延时2秒
     time.sleep(5)
     return jsonify({"code": 0, "data": "tesrt4444", "msg": "success"})
+

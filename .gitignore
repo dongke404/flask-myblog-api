@@ -6,6 +6,10 @@ node_modules
 /migrations
 /app/static
 /app/config.py
+ads.txt
+rss.xml
+robots.txt
+sitemap.xml
 
 # local env files
 .env.local

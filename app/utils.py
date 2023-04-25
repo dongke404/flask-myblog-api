@@ -7,6 +7,8 @@ from email.header import Header
 from email.mime.text import MIMEText
 from email.utils import parseaddr, formataddr
 import smtplib
+# rss 模块
+from feedgen.feed import FeedGenerator
 # 邮件发送    
 def _format_addr(s):
     name, addr = parseaddr(s)
@@ -70,3 +72,31 @@ def insert_doc(doc, collection, db, idname="id" ):
         fields={'id': 1, '_id': 0},
         new=True 
     ).get('id')
+
+
+# 更新rss
+def update_rss(set1):
+    # 读取现有的 RSS 文件
+    # 创建FeedGenerator对象
+    fg = FeedGenerator()
+    fg.id('http://kedong.me/rss')
+    fg.title('KirkDong Blog')
+    fg.author({'name': 'KirkDong', 'email': 'dongkirk1992@gmail.com'})
+    fg.link(href='https://kedong.me', rel='alternate')
+    fg.language('zh-cn')
+
+    # 添加条目
+    cursor = set1.find({}, {"_id": 0}).sort("article_id", -1).limit(20)
+    for i in cursor:
+        fe = fg.add_entry()
+        fe.id(str(i["article_id"]) )
+        fe.title(i["title"])
+        #i["article_id"]加到https://kedong.me/
+        fe.link(href="https://kedong.me/article/{0}".format(i["article_id"]))
+        fe.description(i["description"])
+        # i.date 2021/12/31 16:25转换中国时间
+        fe.pubDate(datetime.datetime.strptime(i["date"]+':00', "%Y/%m/%d %H:%M:%S").strftime("%a, %d %b %Y %H:%M:%S +0800"))
+    # 将Feed转换为字符串
+    # rss_xml = fg.atom_str(pretty=True)
+    # 将XML输出到文件
+    fg.atom_file('rss.xml')
