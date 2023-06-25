@@ -19,7 +19,7 @@ myblog = Blueprint("myblog", __name__)
 import requests
 
 
-# tweet模块
+# 弃用 tweet模块 tweet接口已被403
 @myblog.route(BASEURL + "/tweet", methods=["GET"])
 def tweet():
     params = request.args
