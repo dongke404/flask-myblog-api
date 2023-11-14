@@ -1,7 +1,7 @@
 # coding=UTF-8
 
 from flask import Flask
-from app.config import MONGODBHOST,DBUSERNAME,DBPASSWORD,DEV
+from app.config import MONGODBHOST,DBUSERNAME,DBPASSWORD,DEV,DBNAME
 from pymongo import MongoClient
 
 app = Flask(__name__)
@@ -16,4 +16,4 @@ myclient = MongoClient(MONGODBHOST,
                        # authSource='myblog',
                        authMechanism='SCRAM-SHA-1'
                        )
-db = myclient["myblog"]
+db = myclient[DBNAME]
