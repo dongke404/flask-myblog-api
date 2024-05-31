@@ -83,6 +83,8 @@ def update_rss(set1):
     fg.title('KirkDong Blog')
     fg.author({'name': 'KirkDong', 'email': 'dongkirk1992@gmail.com'})
     fg.link(href='https://kedong.me', rel='alternate')
+    #image
+    fg.image(url='https://kedong.me/favicon.ico', title='KirkDong Blog', link='https://kedong.me')
     fg.language('zh-cn')
 
     # 添加条目
